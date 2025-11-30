@@ -1,5 +1,6 @@
 local currentBloodLevel = 0
 local lastDamageTime = 0
+local isBloodShowing = false
 
 -- Function to show blood effect
 local function ShowBloodEffect()
@@ -12,29 +13,38 @@ local function ShowBloodEffect()
         action = 'ShowBlood',
         image = Config.Blood.images[currentBloodLevel]
     })
+    
+    isBloodShowing = true
 end
 
 -- Function to reset blood level
 local function ResetBloodLevel()
-    currentBloodLevel = 0
+    if currentBloodLevel > 0 and (GetGameTimer() - lastDamageTime) >= Config.Blood.resetTime then
+        currentBloodLevel = 0
+        isBloodShowing = false
+    end
 end
 
--- Event handler for player damage
-AddEventHandler('gameEventTriggered', function(event, data)
-    if event == 'CEventNetworkEntityDamage' then
-        local victim = data[1]
-        local attacker = data[2]
-        local isDead = data[4]
+-- Monitor player health
+CreateThread(function()
+    local lastHealth = GetEntityHealth(PlayerPedId())
+    
+    while true do
+        Wait(100)
         
-        -- Check if the victim is the local player and not dead
-        if victim == PlayerPedId() and not isDead then
+        local playerPed = PlayerPedId()
+        local currentHealth = GetEntityHealth(playerPed)
+        
+        -- Check if player took damage
+        if currentHealth < lastHealth and currentHealth > 0 then
             ShowBloodEffect()
-            
-            -- Check if we need to reset blood level
-            local currentTime = GetGameTimer()
-            if (currentTime - lastDamageTime) >= Config.Blood.resetTime then
-                ResetBloodLevel()
-            end
+        end
+        
+        lastHealth = currentHealth
+        
+        -- Reset blood level after time
+        if isBloodShowing then
+            ResetBloodLevel()
         end
     end
 end)
